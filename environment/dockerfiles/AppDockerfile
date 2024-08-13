@@ -1,0 +1,76 @@
+FROM php:fpm-bullseye
+
+#1 Set working directory
+WORKDIR /var/www
+
+#2 Install dependencies
+RUN apt-get update && apt-get install -y \
+    bash \
+    build-essential \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    locales \
+    zip \
+    jpegoptim \
+    optipng \
+    pngquant \
+    gifsicle \
+    vim \
+    unzip \
+    git \
+    curl \
+    wget \
+    libzip-dev \
+    zlib1g-dev \
+    g++ \
+    git \
+    libicu-dev \
+    libzip-dev \
+    fontconfig \
+    libfreetype6 \
+    libjpeg62-turbo \
+    libpng16-16 \
+    libx11-6 \
+    libxcb1 \
+    libxext6 \
+    libxrender1 \
+    xfonts-75dpi \
+    xfonts-base \
+    sqlite3 \
+    libsqlite3-dev
+
+#3 Clear cache
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+#4 Install PECL extensions
+RUN pecl docker-php-ext-configure zip
+
+RUN docker-php-ext-install pdo_mysql exif pcntl intl opcache pdo pdo_mysql zip
+RUN docker-php-ext-configure gd
+RUN docker-php-ext-install gd
+
+#5 Install composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+
+#6 Add user for application
+RUN groupadd -g 1000 www
+RUN useradd -u 1000 -ms /bin/bash -g www www
+
+#7 Copy existing application directory contents
+COPY . /var/www
+
+#8 Copy existing application directory permissions
+COPY --chown=www:www . /var/www
+ENV COMPOSER_ALLOW_SUPERUSER 1
+ENV XDEBUG_MODE coverage
+ENV SYMFONY_DEPRECATIONS_HELPER disabled
+
+#9
+# Change current user to www
+USER www
+
+#10 Expose port 9000 and start php-fpm server
+EXPOSE 9000
+CMD ["php-fpm"]

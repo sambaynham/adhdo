@@ -1,0 +1,93 @@
+version: '3.9'
+services:
+    #PHP Service
+    adhdo-app:
+        build:
+            context: .
+            dockerfile: ./environment/dockerfiles/AppDockerfile
+        container_name: adhdo-app
+        tty: true
+        restart: unless-stopped
+        environment:
+            SERVICE_NAME: adhdo-app
+            SERVICE_TAGS: dev
+        working_dir: /var/www
+        ports:
+            - "9091:9000"
+        volumes:
+            - ./app:/var/www
+            - ./environment/config/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+            - ./environment/logs/php:/var/log/php/
+        networks:
+            - adhdo-network
+
+    #Nginx Service
+    adhdo-webserver:
+        image: nginx:alpine
+        container_name: adhdo-webserver
+        restart: unless-stopped
+        tty: true
+        ports:
+            - "8087:80"
+            - "44443:443"
+        volumes:
+            - ./app:/var/www
+            - ./environment/config/nginx/conf.d/:/etc/nginx/conf.d/
+            - ./environment/logs/nginx:/var/log/nginx/
+        networks:
+            - adhdo-network
+
+    #Composer
+    adhdo-composer:
+        restart: 'no'
+        image: composer
+        command: install
+        volumes:
+            - ./app:/app
+
+    #Node.js
+    adhdo-node:
+        image: node:18
+        command: bash -c "npm install && npm run watch"
+        working_dir: /app
+        volumes:
+            - ./app:/app
+
+    #MySQL Service
+    adhdo-db:
+        image: mariadb
+        container_name: adhdo-db
+        restart: unless-stopped
+        ports:
+            - 33069:3306
+        environment:
+            MYSQL_DATABASE: sams_books_database
+            MYSQL_ROOT_PASSWORD: test_password
+            SERVICE_TAGS: dev
+            SERVICE_NAME: mysql
+        volumes:
+            - ./environment/config/mysql/init:/docker-entrypoint-initdb.d
+            - adhdo-db-data:/var/lib/mysql/
+            - ./environment/logs/mysql:/var/log/mysql
+            - ./environment/config/mysql/my.cnf:/etc/mysql/my.cnf
+        networks:
+            - adhdo-network
+
+
+    #Memcached
+    adhdo-memcached:
+        image: memcached
+        ports:
+            - 61212:11211
+        command: memcached -m 1024m
+
+
+#Docker Networks
+networks:
+    adhdo-network:
+        driver: bridge
+
+#Volumes
+volumes:
+    adhdo-db-data:
+        driver: local
